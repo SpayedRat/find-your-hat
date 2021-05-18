@@ -11,11 +11,14 @@ const pathCharacter = '*';
 class Field {
 
   // Constructor
-  // Input: object containing (1) a 2D array representing the field and (2) 1D array representing the player's initial row and column positions
+  // Input: fieldInput = object containing (1) a 2D array representing the field and (2) 1D array representing the player's initial row and column positions
+  // Input: hardMode = boolean indicating whether or not hard mode has been enabled. If so, a hole will be added to the field on a random blank field character every 3 moves
   // Ouput: none
-  constructor(fieldInput) {
+  constructor(fieldInput, hardModeEnable) {
     this._field = fieldInput.field; // Set field property equal to input field
     this._currentPosition = fieldInput.playerPosition; // Set player position property to specified position
+    this._hardModeEnable = hardModeEnable; // Set difficulty property equal to input difficulty
+    this._moveCount = 0; // Initialize count of player moves to 0 -- this will be used to 
   }
 
   // Prints out current field in plain text, rather than raw array
@@ -88,7 +91,7 @@ class Field {
       if (this._field[currentRow][currentColumn] === hole) {
         
         // If player has fallen into a hole print out message stating that the player has lost, and return true  
-        console.log('You fell in a hole!');
+        console.log('\nYou fell in a hole!');
         console.log('You lose');
         return true; // Returning true indicates that the game is over, and the while loop in the main script will exit
 
@@ -96,13 +99,21 @@ class Field {
       } else if (this._field[currentRow][currentColumn] === hat) {
 
         // If player has reached the hat, print out a message stating that the player has won the game, and return true
-        console.log('You found your hat!');
+        console.log('\nYou found your hat!');
         console.log('You win the game!');
         return true; // Returning true indicates that the game is over, and the while loop in the main script will exit
 
       // If player has not reached the hat or fallen into a hole, game can continue 
       } else {
         this._field[currentRow][currentColumn] = pathCharacter; // Turn the character at the current position in the field into a path character
+        this._moveCount++;
+
+        // If hard mode is enabled and move count has reached 3, add a hole to the field
+        if (this._hardModeEnable && this._moveCount === 3 ) {
+          this.addHole();
+          this._moveCount = 0; // Reset move count to 0
+        }
+
         this.print(); // Print the current board
         return false; // Returning false indicates that the game is not over, and the player can continue to make moves
       }
@@ -111,10 +122,37 @@ class Field {
     } else {
 
       // Print out a message stating that the player has lost the game, and return true
-      console.log('You moved out of bounds!');
+      console.log('\nYou moved out of bounds!');
       console.log('You lose');
       return true; // Returning true indicates that the game is over, and the while loop in the main script will exit
     }
+  }
+
+  // Adds hole to field at the position of a random blank field character 
+  addHole() {
+
+    // Initialize variables for row and column position of holes that is to be placed
+    let holeRow = 0;
+    let holeColumn = 0;
+
+    let characterAtPosition = this._field[holeRow][holeColumn]; // Initialize variable for getting character at randomly chosen position 
+    let loopCount = 0; // Initialize counter to exit loop if too many iterations occur
+
+    do {
+      // Randomly choose coordinates for the new hole to be placed in 2D field array
+      holeRow = Math.floor(Math.random() * this._field.length);
+      holeColumn = Math.floor(Math.random() * this._field[0].length);
+
+      // Get character at the randomly chosen position above
+      characterAtPosition = this._field[holeRow][holeColumn];
+      
+      // Iterate loop count
+      loopCount++;
+
+    } while (characterAtPosition !== fieldCharacter && loopCount < 20) // Loop exits if the character at the randomly chosen position is a blank field character or if the loop iterated more than 20 times, indicating that blank field characters are sparse
+
+    // Set character in the randomly chosen position of the 2D field array above to a hole
+    this._field[holeRow][holeColumn] = hole;
   }
 
   // Randomly generates a field with a single hat, 0 or more holes, and 1 path character starting at the top left corner of the screen 
@@ -163,7 +201,7 @@ class Field {
     let holesPlaced = 0; // Counter for the total quantity of holes placed on the field
     let holeRow = 0; // Row position of the current hole to be placed on the field
     let holeColumn = 0; // Column position of the current holes to be placed on the field
-    let characterAtPosition = field[0][0]; // Get character at left-hand corner (player position)
+    let characterAtPosition = field[pathRow][pathColumn]; // Get character at player's initial position
 
     // While loop runs as long as the quantity of holes placed on the field is less than the total number of holes specified by the input percentage
     while (holesPlaced < numHoles) {
@@ -201,8 +239,34 @@ class Field {
 // Output: none
 playGame = () => {
 
-  // Define a new field array with 10 rows, 10 columns, and 30 percent of blank field characters being holes
-  const myField = new Field(Field.generateField(10, 10, 30));
+  let hardModeEnable = false // Initialize variable for game difficulty (false = easy, true = hard)
+  let difficultyInput = '';  // Initialize player input variable for setting game difficulty
+  let difficultyInputInvalid = true; // Initialize variable for exit condition of while loop below
+  
+  // While loop runs as long as the input from the user is invalid
+  while (difficultyInputInvalid === true) {
+
+    difficultyInput = prompt('Which difficulty would you like to play? '); // Prompt the user for game difficulty
+    difficultyInput = difficultyInput.toLowerCase(); // Turn user input to lower case in order to disable case senstivity
+
+    // If user enters 'easy' or 'e', set difficulty to easy
+    if (difficultyInput === 'easy' || difficultyInput === 'e') {
+      hardModeEnable = false;
+      difficultyInputInvalid = false; // Exit loop after current iteration
+
+    // If user enters 'hard' or 'h', set difficulty to hard
+    } else if (difficultyInput === 'hard' || difficultyInput === 'h') {
+      hardModeEnable = true;
+      difficultyInputInvalid = false; // Exit loop after current iteration
+
+    // Else, input is invalid; print message to notify user accordingly
+    } else {
+      console.log('Invalid input'); 
+    } // Loop will exit if input is valid, otherwise ask the player again to input game difficulty
+  }
+
+  // Define a new field array
+  const myField = new Field(Field.generateField(10, 20, 30), hardModeEnable);
 
   // Print the current field to the console
   console.log('Current field:');
@@ -210,6 +274,9 @@ playGame = () => {
 
   // Set game over boolean to false (the game hasn't even started yet!)
   let gameOver = false;
+
+  // Initialize player input variable for making a move
+  let moveInput = '';
 
   // While loop runs as long as the game is not over
   while (gameOver == false) { 
@@ -219,13 +286,13 @@ playGame = () => {
     // 'down' or 'd' for down
     // 'right' or 'r' for right
     // 'left' or 'l' for left  
-    let userInput = prompt('In which direction would you like to move? ');
+    moveInput = prompt('In which direction would you like to move? ');
     
     // Turn user input to lower case in order to disable case senstivity
-    userInput = userInput.toLowerCase();
+    moveInput = moveInput.toLowerCase();
 
     // Switch statement to act on player input
-    switch(userInput) {
+    switch(moveInput) {
 
       // Player chooses to move down
       case 'd':
@@ -267,25 +334,26 @@ playGame = () => {
   } // Loop exits if game is over
 
   // Print game over message
-  console.log('Game over');
+  console.log('\nGame over\n');
 
-  // Initialize variable for exit condition of while loop below
-  let inputInvalid = true;
+  let againInput = ''; // Initialize player input variable for playing again
+  let againInputInvalid = true; // Initialize variable for exit condition of while loop below
+
   
-  // While loop runs as long as the input from the user is invlaid
-  while (inputInvalid === true) {
+  // While loop runs as long as the input from the user is invalid
+  while (againInputInvalid === true) {
 
-    userInput = prompt('Play again? '); // Prompt the user if they want to play again=
-    userInput = userInput.toLowerCase(); // Turn user input to lower case in order to disable case senstivity
+    againInput = prompt('Play again? '); // Prompt the user if they want to play again=
+    againInput = againInput.toLowerCase(); // Turn user input to lower case in order to disable case senstivity
 
     // If user enters 'yes' or 'y', play game again
-    if (userInput === 'yes' || userInput === 'y') {
+    if (againInput === 'yes' || againInput === 'y') {
       playGame();
-      inputInvalid = false; // Exit loop after current iteration
+      againInputInvalid = false; // Exit loop after current iteration
 
     // If user enters 'no' or 'n', game will exit
-    } else if (userInput === 'no' || userInput === 'n') {
-      inputInvalid = false; // Exit loop after current iteration
+    } else if (againInput === 'no' || againInput === 'n') {
+      againInputInvalid = false; // Exit loop after current iteration
 
     // Else, input is invalid; print message to notify user accordingly
     } else {
